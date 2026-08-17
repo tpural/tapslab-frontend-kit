@@ -1,6 +1,6 @@
 {
   "name": "@tpural/frontend-kit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Client-side hooks and utilities shared by tapslab projects",
   "license": "MIT",
   "repository": {
@@ -24,7 +24,7 @@
     "react": "^19"
   },
   "dependencies": {
-    "@tpural/backend-kit": "^0.2.0"
+    "@tpural/backend-kit": "github:tpural/tapslab-backend-kit#v0.2.1"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
