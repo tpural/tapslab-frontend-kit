@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # This package depends on @tapslab/backend-kit for the response envelope
+      # types, and that repo is private. GITHUB_TOKEN cannot read it.
+      - name: Authenticate to the private library repos
+        run: |
+          git config --global \
+            url."https://x-access-token:${{ secrets.LIBS_TOKEN }}@github.com/".insteadOf \
+            "https://github.com/"
+          git config --global --add \
+            url."https://x-access-token:${{ secrets.LIBS_TOKEN }}@github.com/".insteadOf \
+            "ssh://git@github.com/"
+
+      - run: npm ci
+      - run: npm run check
