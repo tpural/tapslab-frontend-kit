@@ -1,6 +1,6 @@
 {
   "name": "@tpural/frontend-kit",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "description": "Client-side hooks and utilities shared by tapslab projects",
   "license": "MIT",
   "repository": {
