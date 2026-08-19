@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 /**
  * Delays a changing value. For search inputs, where you want to render on every
@@ -26,17 +26,24 @@ export function useDebounce<T>(value: T, delayMs = 300): T {
  * answer is purely visual, and keep this for behaviour that CSS cannot express.
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const mq = window.matchMedia(query);
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    [query],
+  );
 
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    setMatches(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [query]);
-
-  return matches;
+  // useSyncExternalStore rather than state synced in an effect: it reads the
+  // real value during the client's first commit instead of rendering false and
+  // then correcting, and its third argument is the server answer, so the
+  // hydration contract is stated rather than implied.
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(query).matches,
+    () => false,
+  );
 }
 
 /**
@@ -53,6 +60,11 @@ export function useLocalStorage<T>(key: string, initial: T) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(key);
+      // Deliberately deferred to an effect: reading during render would make
+      // the first client render disagree with the server's. `loaded` is how a
+      // caller distinguishes "nothing stored" from "not read yet", which a
+      // useSyncExternalStore snapshot cannot express.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw !== null) setValue(JSON.parse(raw) as T);
     } catch {
       // Unparseable or unavailable; the initial value stands.

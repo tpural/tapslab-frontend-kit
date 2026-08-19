@@ -37,11 +37,17 @@ export type ApiFetchOptions = RequestInit & {
 export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): Promise<T> {
   const { json, timeoutMs = 30_000, headers, signal, ...rest } = options;
 
+  // A caller who aborted before we were called has already asked for nothing
+  // to happen. addEventListener alone would miss this: the abort event fired
+  // before the listener existed, so the request would go out regardless.
+  if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
+
   // A fetch with no timeout hangs until the browser gives up -- minutes, with
   // no way for the UI to recover.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  if (signal) signal.addEventListener("abort", () => controller.abort(), { once: true });
+  const onCallerAbort = () => controller.abort();
+  signal?.addEventListener("abort", onCallerAbort, { once: true });
 
   let response: Response;
   try {
@@ -65,6 +71,10 @@ export async function apiFetch<T>(url: string, options: ApiFetchOptions = {}): P
     );
   } finally {
     clearTimeout(timer);
+    // Removed explicitly, not left to `once`: on the normal path it never
+    // fires, and a signal that outlives one request would otherwise collect a
+    // listener per call.
+    signal?.removeEventListener("abort", onCallerAbort);
   }
 
   if (response.status === 204) return undefined as T;

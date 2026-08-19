@@ -101,3 +101,40 @@ describe("apiFetch", () => {
     expect((init.headers as Record<string, string>)["content-type"]).toBe("application/json");
   });
 });
+
+describe("caller-supplied abort signals", () => {
+  it("does not issue the request when the signal is already aborted", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(apiFetch("/items", { signal: controller.signal })).rejects.toThrow();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("leaves no listener behind on the normal path", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ ok: true, data: { id: 1 } }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+      ),
+    );
+
+    const controller = new AbortController();
+    const added: string[] = [];
+    const original = controller.signal.removeEventListener.bind(controller.signal);
+    controller.signal.removeEventListener = (...args: Parameters<typeof original>) => {
+      added.push("removed");
+      return original(...args);
+    };
+
+    await apiFetch("/items", { signal: controller.signal });
+    expect(added).toContain("removed");
+  });
+});
